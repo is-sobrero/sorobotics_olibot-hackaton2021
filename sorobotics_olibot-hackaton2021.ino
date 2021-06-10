@@ -37,7 +37,14 @@ int status = WL_IDLE_STATUS;
 void setup() {
   Serial.begin(115200);
   while(!Serial);
-
+  CARRIER_CASE = false;
+  carrier.begin();
+  carrier.display.fillScreen(ST77XX_WHITE);
+  carrier.display.setCursor(0, 0);
+  carrier.display.setTextColor(ST77XX_BLUE);
+  carrier.display.setTextWrap(true);
+  carrier.display.setTextSize(3);
+  carrier.display.print("Connessione\nal WiFi in\ncorso");
   while (status != WL_CONNECTED) {
     Serial.print("Attempting to connect to network: ");
     Serial.println(ssid);
@@ -47,8 +54,12 @@ void setup() {
     // wait 10 seconds for connection:
     delay(3000);
   }
-  CARRIER_CASE = false;
-  carrier.begin();
+
+  carrier.display.fillScreen(ST77XX_GREEN);
+  carrier.display.setTextColor(ST77XX_WHITE);
+  carrier.display.setCursor(0, 0);
+  carrier.display.print("Stazione\nRetrieverBot\nconnessa");
+  
   Serial.println("Board Information:");
   // print your board's IP address:
   IPAddress ip = WiFi.localIP();
@@ -153,10 +164,21 @@ void loop() {
           doc["system_status"] = "flood";
           serializeJsonPretty(doc, payload);
           mqtt.publish("retrieverbot/v1/notify", payload);
+          carrier.display.fillScreen(ST77XX_RED);
+          carrier.display.setCursor(0, 0);
+          carrier.display.setTextColor(ST77XX_WHITE);
+          carrier.display.print("Alluvione\nRilevata!!");
           // chiamata ai soccorsi gestita dal robot
         break;
         case EARTHQUAKE:
           doc["system_status"] = "earthquake";
+          serializeJsonPretty(doc, payload);
+          mqtt.publish("retrieverbot/v1/notify", payload);
+          state = STATE_EARTHQUAKE;
+          // chiama soccorsi
+        break;
+        case FIRE:
+          doc["system_status"] = "fire";
           serializeJsonPretty(doc, payload);
           mqtt.publish("retrieverbot/v1/notify", payload);
           state = STATE_EARTHQUAKE;
