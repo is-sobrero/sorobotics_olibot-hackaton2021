@@ -44,7 +44,7 @@ void setup() {
   carrier.display.setTextColor(ST77XX_BLUE);
   carrier.display.setTextWrap(true);
   carrier.display.setTextSize(3);
-  carrier.display.print("Connessione\nal WiFi in\ncorso");
+  carrier.display.print("Connessione\nal WiFi in\ncorso...");
   while (status != WL_CONNECTED) {
     Serial.print("Attempting to connect to network: ");
     Serial.println(ssid);
