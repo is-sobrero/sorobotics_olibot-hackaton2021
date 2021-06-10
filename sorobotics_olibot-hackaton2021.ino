@@ -116,6 +116,17 @@ eventtype_t getEvent(){
   return IDLE;
 }
 
+bool getDeadMan(){
+  bool b01 = carrier.Button0.getTouch();
+  bool b02 = carrier.Button4.getTouch();
+
+  carrier.leds.setPixelColor(0, 0, 0, b01 ? 255 : 0);
+  carrier.leds.setPixelColor(4, 0, 0, b02 ? 255 : 0);
+  carrier.leds.show();          
+  
+  return b01 & b02;
+}
+
 void reconnect(){
 
   while(!mqtt.connected()){
@@ -145,14 +156,31 @@ void reconnect(){
 static char payload[256];
 StaticJsonDocument<256> doc;
 
+void dismissEmergency(){
+  doc["system_status"] = "dismissed";
+  serializeJsonPretty(doc, payload);
+  mqtt.publish("retrieverbot/v1/notify", payload);
+  state = STATE_IDLING;
+  carrier.display.fillScreen(ST77XX_BLUE);
+  carrier.display.setTextColor(ST77XX_WHITE);
+  carrier.display.setCursor(0, 0);
+  carrier.display.print("Emergenza\nDismessa");
+  delay(2000);
+  carrier.display.fillScreen(ST77XX_GREEN);
+  carrier.display.setTextColor(ST77XX_WHITE);
+  carrier.display.setCursor(0, 0);
+  carrier.display.print("Stazione\nRetrieverBot\nconnessa");
+  carrier.leds.setPixelColor(0, 0, 0, 0);
+  carrier.leds.setPixelColor(4, 0, 0, 0);
+  carrier.leds.show();          
+}
+
 void loop() {
   // macchina a stati del sistema
-  if (!mqtt.connected())
-  {
-    reconnect();
-  }
+  if (!mqtt.connected()) reconnect();
 
   mqtt.loop();
+  carrier.Buttons.update();
   switch(state){
     // Stato iniziale, controlla le condizioni di trigger del robot o dei soccorsi
     case STATE_IDLING:
@@ -174,6 +202,10 @@ void loop() {
           doc["system_status"] = "earthquake";
           serializeJsonPretty(doc, payload);
           mqtt.publish("retrieverbot/v1/notify", payload);
+          carrier.display.fillScreen(ST77XX_RED);
+          carrier.display.setCursor(0, 0);
+          carrier.display.setTextColor(ST77XX_WHITE);
+          carrier.display.print("Terremoto\nRilevato!!");
           state = STATE_EARTHQUAKE;
           // chiama soccorsi
         break;
@@ -188,9 +220,12 @@ void loop() {
     break;
     case STATE_FLOOD:
       Serial.println("ALLAGAMENTO");
+      if (getDeadMan()) dismissEmergency();
+      
     break;
     case STATE_EARTHQUAKE:
       Serial.println("TERREMOTO");
+      if (getDeadMan()) dismissEmergency();
     break;
     default:
     break;
