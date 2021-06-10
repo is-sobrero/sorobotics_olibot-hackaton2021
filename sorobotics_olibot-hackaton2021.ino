@@ -10,6 +10,7 @@ LICENZA
 #include <ArduinoJson.h>  
 
 #include "secrets.h";
+#include "graphics.h";
 
 MKRIoTCarrier carrier;
 WiFiClient mkr1010Client;
@@ -55,10 +56,7 @@ void setup() {
     delay(3000);
   }
 
-  carrier.display.fillScreen(ST77XX_GREEN);
-  carrier.display.setTextColor(ST77XX_WHITE);
-  carrier.display.setCursor(0, 0);
-  carrier.display.print("Stazione\nRetrieverBot\nconnessa");
+  carrier.display.drawRGBBitmap(0, 0, idle_bmp, 240, 240);
   
   Serial.println("Board Information:");
   // print your board's IP address:
@@ -166,10 +164,7 @@ void dismissEmergency(){
   carrier.display.setCursor(0, 0);
   carrier.display.print("Emergenza\nDismessa");
   delay(2000);
-  carrier.display.fillScreen(ST77XX_GREEN);
-  carrier.display.setTextColor(ST77XX_WHITE);
-  carrier.display.setCursor(0, 0);
-  carrier.display.print("Stazione\nRetrieverBot\nconnessa");
+  carrier.display.drawRGBBitmap(0, 0, idle_bmp, 240, 240);
   carrier.leds.setPixelColor(0, 0, 0, 0);
   carrier.leds.setPixelColor(4, 0, 0, 0);
   carrier.leds.show();          
@@ -202,10 +197,8 @@ void loop() {
           doc["system_status"] = "earthquake";
           serializeJsonPretty(doc, payload);
           mqtt.publish("retrieverbot/v1/notify", payload);
-          carrier.display.fillScreen(ST77XX_RED);
-          carrier.display.setCursor(0, 0);
-          carrier.display.setTextColor(ST77XX_WHITE);
-          carrier.display.print("Terremoto\nRilevato!!");
+            carrier.display.drawRGBBitmap(0, 0, earthquake_bmp, 240, 240);
+
           state = STATE_EARTHQUAKE;
           // chiama soccorsi
         break;
