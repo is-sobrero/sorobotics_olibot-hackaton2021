@@ -5,7 +5,15 @@ LICENZA
 #define FLOODING_THRESHOLD 10 
 
 #include <Arduino_MKRIoTCarrier.h>
+#include <WiFiNINA.h>
+#include <PubSubClient.h>  
+#include <ArduinoJson.h>  
+
+#include "secrets.h";
+
 MKRIoTCarrier carrier;
+WiFiClient mkr1010Client;
+PubSubClient mqtt(mkr1010Client);
 
 float gyro_x;
 float gyro_y;
@@ -20,13 +28,43 @@ typedef enum {
 } eventtype_t;
 
 int moistPin = A5;
+
+char ssid[] = WIFI_SSID;
+char pasw[] = WIFI_PASW;
+
+int status = WL_IDLE_STATUS;
+
 void setup() {
   Serial.begin(115200);
   while(!Serial);
-   CARRIER_CASE = false;
-  carrier.begin();
-  Serial.println("NO");
 
+  while (status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to network: ");
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network:
+    status = WiFi.begin(ssid, pasw);
+
+    // wait 10 seconds for connection:
+    delay(3000);
+  }
+  CARRIER_CASE = false;
+  carrier.begin();
+  Serial.println("Board Information:");
+  // print your board's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  Serial.println();
+  Serial.println("Network Information:");
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.println(rssi);
+  mqtt.setServer("test.mosquitto.org", 1883);
 }
 
 eventtype_t event;
@@ -67,8 +105,43 @@ eventtype_t getEvent(){
   return IDLE;
 }
 
+void reconnect(){
+
+  while(!mqtt.connected()){
+    
+    Serial.print("Attempting MQTT connection ....");
+
+    if (mqtt.connect("arduinoClient")) { 
+      
+      Serial.println("Connected to MQTT Broker");
+    
+    }
+
+    else
+    {
+      Serial.print("failed, rc=");
+      Serial.print(mqtt.state());
+      Serial.println("try again in 5 second");
+      delay(5000);
+    }
+    
+    
+  }
+  
+}
+
+
+static char payload[256];
+StaticJsonDocument<256> doc;
+
 void loop() {
   // macchina a stati del sistema
+  if (!mqtt.connected())
+  {
+    reconnect();
+  }
+
+  mqtt.loop();
   switch(state){
     // Stato iniziale, controlla le condizioni di trigger del robot o dei soccorsi
     case STATE_IDLING:
@@ -77,9 +150,15 @@ void loop() {
         break;
         case FLOOD:
           state = STATE_FLOOD;
-          // chiama soccorsi
+          doc["system_status"] = "flood";
+          serializeJsonPretty(doc, payload);
+          mqtt.publish("retrieverbot/v1/notify", payload);
+          // chiamata ai soccorsi gestita dal robot
         break;
         case EARTHQUAKE:
+          doc["system_status"] = "earthquake";
+          serializeJsonPretty(doc, payload);
+          mqtt.publish("retrieverbot/v1/notify", payload);
           state = STATE_EARTHQUAKE;
           // chiama soccorsi
         break;
